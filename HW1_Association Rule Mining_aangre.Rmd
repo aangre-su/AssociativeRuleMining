@@ -1,0 +1,364 @@
+---
+title: 'HW1: Association Rule Mining'
+author: "Apoorva Angre"
+date: "February 10, 2019"
+output: "html_document"
+---
+
+```{r setup, include=FALSE}file:///A:/Semester_Four/707/week_3_AssociativeRuleMining/HW1_ Association Rule Mining.html
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r echo=TRUE}
+library(dplyr)
+library(arules)
+library(arulesViz)
+data("AdultUCI")
+str(AdultUCI)
+```
+
+#Data Exploration
+###dimensions of dataset
+
+```{r echo=TRUE}
+
+dim(AdultUCI)
+```
+#15 columns and 48842rows
+```{r echo=TRUE}
+str(AdultUCI)
+```
+## variable classes
+```{r echo=TRUE}
+sapply(AdultUCI, class)
+```
+#age,fnlwgt,education-num ,capital-gain,capital-loss, hours-per-week are numeric others are categorical
+# list levels for each factor
+```{r echo=TRUE}
+sapply(Filter(is.factor,AdultUCI),levels)
+```
+##Descriptive statistics
+```{r echo=TRUE}
+summary(AdultUCI)
+adult_DF<-AdultUCI
+```
+####Data Cleaning
+#now let's do some major cleaning
+
+###FROM THE DATA EXPLORATION above we could see that fnlwgt is just a numeric column which is not adding any value and education_num just represents the education column again so it is safe to just remove these columns from the dataframe
+
+```{r echo=TRUE}
+adult_DF<-adult_DF[,-c(3,5)]
+```
+
+###let's check the DF for null values or missing values
+```{r echo=TRUE}
+summary(adult_DF)
+```
+###That shows us that we have 2809 values missing from the occupation column, 2799 missing the workclass information and the native_country is missing 857 values and income is missing 16281 values
+
+###let's get rid of NAs and then again check with complete cases
+```{r echo=TRUE}
+adult_DF<-na.omit(adult_DF)
+sum(!complete.cases(adult_DF))
+```
+###NA values are successfully lost
+###we have still only partly cleaned the data now let's go on to some more data exploration and descriptive stats
+
+#Exploratory Analysis
+###let's convert certain variables to character strings for further analysis:
+```{r echo=TRUE}
+adult_DF$workclass<-as.character(adult_DF$workclass)
+adult_DF$education<-as.character(adult_DF$education)
+adult_DF$`marital-status`<-as.character(adult_DF$`marital-status`)
+adult_DF$occupation<-as.character(adult_DF$occupation)
+adult_DF$relationship<-as.character(adult_DF$relationship)
+adult_DF$race<-as.character(adult_DF$race)
+adult_DF$sex<-as.character(adult_DF$sex)
+adult_DF$`native-country`<-as.character(adult_DF$`native-country`)
+adult_DF$income<-as.character(adult_DF$income)
+
+str(adult_DF)
+```
+###Descriptive stats for certain columns:
+###(minimum, lower-hinge, median, upper-hinge, maximum)
+```{r echo=TRUE}
+fivenum(adult_DF$age)
+
+fivenum(adult_DF$`capital-gain`)
+fivenum(adult_DF$`capital-loss`)
+fivenum(adult_DF$`hours-per-week`)
+```
+
+###Determining the spread of 'workclass' and clubbing categories  to perform better association mining###we can just club certain variables for ease:
+
+```{r echo=TRUE}
+table(adult_DF$workclass)
+adult_DF$workclass = gsub('Federal-gov','Federal_gov',adult_DF$workclass)
+adult_DF$workclass = gsub('Local-gov','Local_gov',adult_DF$workclass)
+adult_DF$workclass = gsub('Private','Private',adult_DF$workclass)
+adult_DF$workclass = gsub('Self-emp-inc','Self_empl',adult_DF$workclass)
+adult_DF$workclass = gsub('Self-emp-not-inc','Self_empl',adult_DF$workclass)
+adult_DF$workclass = gsub('State-gov','State_gove',adult_DF$workclass)
+adult_DF$workclass = gsub('Without-pay','Without_pay',adult_DF$workclass)
+table(adult_DF$workclass)
+```
+#Determining the spread of 'education' and clubbing categories  to perform better association mining
+```{r echo=TRUE}
+table(adult_DF$education)
+
+adult_DF$education = gsub('10th','Schooled',adult_DF$education)
+adult_DF$education = gsub('11th','Schooled',adult_DF$education)
+adult_DF$education = gsub('1st-4th','Schooled',adult_DF$education)
+adult_DF$education = gsub('5th-6th','Schooled',adult_DF$education)
+adult_DF$education = gsub('7th-8th','Schooled',adult_DF$education)
+adult_DF$education = gsub('9th','Schooled',adult_DF$education)
+adult_DF$education = gsub('Preschool','Schooled',adult_DF$education)
+adult_DF$education = gsub('12th','Schooled',adult_DF$education)
+adult_DF$education = gsub('Assoc-acdm','Associate_Degree',adult_DF$education)
+adult_DF$education = gsub('Assoc-voc','Associate_Degree',adult_DF$education)
+adult_DF$education = gsub('HS-grad','HS-grad',adult_DF$education)
+adult_DF$education = gsub('Some-college','HS-grad',adult_DF$education)
+
+table(adult_DF$`marital-status`)
+```
+#Determining the spread of 'marital_status' and clubbing categories  to perform better association mining
+```{r echo=TRUE}
+adult_DF$`marital-status` = gsub('^Divorced','Separated',adult_DF$`marital-status`)
+adult_DF$`marital-status` = gsub('^Married-spouse-absent','Separated',adult_DF$`marital-status`)
+adult_DF$`marital-status` = gsub('^Separated','Separated',adult_DF$`marital-status`)
+adult_DF$`marital-status` = gsub('^Married-AF-spouse','Married',adult_DF$`marital-status`)
+adult_DF$`marital-status` = gsub('^Married-civ-spouse','Married',adult_DF$`marital-status`)
+
+```
+#Determining the spread of 'marital_status' and clubbing categories  to perform better association mining
+```{r echo=TRUE}
+table(adult_DF$occupation)
+
+adult_DF$occupation = gsub('Adm-clerical','Admin',adult_DF$occupation)
+adult_DF$occupation = gsub('Craft-repair','Blue_Collar',adult_DF$occupation)
+adult_DF$occupation = gsub('Handlers-cleaners','Blue_Collar',adult_DF$occupation)
+adult_DF$occupation = gsub('Farming-fishing','Blue_Collar',adult_DF$occupation)
+adult_DF$occupation = gsub('Machine-op-inspct','Blue_Collar',adult_DF$occupation)
+adult_DF$occupation = gsub('Transport-moving','Blue_Collar',adult_DF$occupation)
+adult_DF$occupation = gsub('Exec-managerial','White_Collar',adult_DF$occupation)
+adult_DF$occupation = gsub('Other-service','Service',adult_DF$occupation)
+adult_DF$occupation = gsub('^Priv-house-serv','Service',adult_DF$occupation)
+adult_DF$occupation = gsub('Protective-serv','Service',adult_DF$occupation)
+```
+####Determining the spread of 'relationship' and clubbing categories  to perform better association mining
+```{r echo=TRUE}
+table(adult_DF$relationship)
+table(adult_DF$race)
+```
+####Doesnt look like we can club any category here
+####as of now we had dealt with all our categorical data , let's move to our four numeric variables
+
+####let's determine correlation between these four variables to give us a better understanding
+```{r echo=TRUE}
+corr_matrix <- cor(adult_DF[,c(1,9,10,11)])
+round(corr_matrix, 2)
+library(corrplot)
+cor_matrix <- cor(adult_DF[,c(1,9,10,11)], method = "pearson")
+corrplot(cor_matrix, type = "upper")
+
+```
+####now let's check the relationship between two variables
+```{r echo=TRUE}
+library(ggplot2)
+ggplot(aes(adult_DF$age,adult_DF$`hours-per-week`),data=adult_DF)+ geom_point(alpha=0.2)+geom_vline(aes(xintercept=mean(adult_DF$`hours-per-week`)), color="blue",linetype="dashed")
+```
+####clear it out:
+####age <25 = work 10 to 50hrs
+####age 25 to 50 = work 25 to 55 hrs
+```{r echo=TRUE}
+#stat<- adult_DF[,c(1,9:11)]
+#describe(stat)
+```
+####let's deal with outliers for each categorical variable on the basis of hrs/week worked
+```{r echo=TRUE}
+ggplot(adult_DF, aes(x = adult_DF$workclass, y = adult_DF$`hours-per-week` )) +geom_boxplot()
+
+ggplot(adult_DF, aes(x = adult_DF$education, y = adult_DF$`hours-per-week` )) +geom_boxplot()
+
+ggplot(adult_DF, aes(x = adult_DF$`marital-status`, y = adult_DF$`hours-per-week` )) +geom_boxplot()
+
+ggplot(adult_DF, aes(x = adult_DF$occupation, y = adult_DF$`hours-per-week` )) +geom_boxplot()
+
+ggplot(adult_DF, aes(x = adult_DF$relationship, y = adult_DF$`hours-per-week` )) +geom_boxplot()
+
+ggplot(adult_DF, aes(x = adult_DF$sex, y = adult_DF$`hours-per-week` )) +geom_boxplot()
+
+ggplot(adult_DF, aes(x = adult_DF$income, y = adult_DF$`hours-per-week` )) +geom_boxplot()
+```
+#Data preprocessing, cleaning, transformation
+####Normalising the data by detecting outliers in age using 'lower fence-upper fence' approach for skewed data
+```{r echo=TRUE}
+summary(adult_DF$age)
+lf<- 28 - 1.5*(47-28) #lower fence , data obtained from summary
+uf<- 47 + 1.5*(47-28) #upper fence , data obtained from summary
+outliers_age<- nrow(adult_DF[(adult_DF$age< -0.5),])+nrow(adult_DF[(adult_DF$age> 75.5),])
+outliers_age #Number of outliers in age
+outlier_values <- boxplot.stats(adult_DF$age)$out
+table(outlier_values)
+
+boxplot(adult_DF$age)
+```
+####Removing noisy data by getting rid of outliers
+```{r echo=TRUE}
+adult_DF$age[adult_DF$age %in% boxplot.stats(adult_DF$age)$out] <- median(adult_DF$age)
+
+adult_DF$`hours-per-week`[adult_DF$`hours-per-week` %in% boxplot.stats(adult_DF$`hours-per-week`)$out] <- median(adult_DF$`hours-per-week`)
+nrow(adult_DF)
+nrow(adult_DF[!duplicated(adult_DF), ])
+boxplot(adult_DF$age)
+boxplot(adult_DF$`hours-per-week`)
+```
+####Determining the 'average hours/week' on the basis of 'sex' and #'marital status'
+```{r echo=TRUE}
+hw_sex<- adult_DF %>% group_by(sex) %>% summarise(hwk=round(mean(`hours-per-week`))) %>% arrange(desc(hwk))
+hw_sex
+
+hw_ms<- adult_DF %>% group_by(`marital-status`) %>% summarise(hwk2=round(mean(`hours-per-week`))) %>% arrange(desc(hwk2))
+hw_ms
+```
+####Running stratified data sampling to determine proportion of values in 'marital status'
+```{r echo=TRUE}
+round(prop.table(table(adult_DF$`marital-status`)),6)
+```
+####we can observe that the value for widowed is negligible, we can just club separated and widowed
+```{r echo=TRUE}
+adult_DF$`marital-status` = gsub('^Separated','Separated_Widowed',adult_DF$`marital-status`)
+adult_DF$`marital-status` = gsub('^Widowed','Separated_Widowed',adult_DF$`marital-status`)
+round(prop.table(table(adult_DF$`marital-status`)),6)
+library(caret)
+sample_index <- createDataPartition(adult_DF$`marital-status`, p = 0.3,list = F)
+round(prop.table(table(adult_DF[sample_index, "marital-status"])),6)
+
+```
+####Discretizing the data from numerical discrete/continuous to categorical, as a-rules works on categorical datatypes
+```{r echo=TRUE}
+library(dplyr)
+save_adult_df<-adult_DF
+adult_DF<-distinct(adult_DF)
+
+table(adult_DF$`hours-per-week`)
+View(adult_DF)
+
+adult_DF[[ "age"]] <- ordered(cut(adult_DF[[ "age"]], c(15,25,45,65,100)),labels = c("Young", "Middle-aged", "Senior", "Old"))
+
+adult_DF[["hours-per-week"]] <- ordered(cut(adult_DF[["hours-per-week"]],c(20,36,46,60)),labels = c("Part-time","Full-time","Over-time"))
+
+
+
+View(adult_DF)
+adult_DF[[ "capital-gain"]] <- ordered(cut(adult_DF[[ "capital-gain"]],c(-Inf,0,median(adult_DF[[ "capital-gain"]][adult_DF[[ "capital-gain"]]>0]),Inf)), labels = c("None", "Low", "High"))
+
+adult_DF[[ "capital-loss"]] <- ordered(cut(adult_DF[[ "capital-loss"]],c(-Inf,0, median(adult_DF[[ "capital-loss"]][adult_DF[[ "capital-loss"]]>0]),Inf)), labels = c("None", "Low", "High"))
+
+
+table(adult_DF$`hours-per-week`)
+```
+####Converting dataset to factor datatype for a-rules mining
+```{r echo=TRUE}
+adult_DF$age = as.factor(adult_DF$age)
+adult_DF$workclass = as.factor(adult_DF$workclass)
+adult_DF$education = as.factor(adult_DF$education)
+adult_DF$`marital-status` = as.factor(adult_DF$`marital-status`)
+adult_DF$occupation = as.factor(adult_DF$occupation)
+adult_DF$relationship = as.factor(adult_DF$relationship)
+adult_DF$race = as.factor(adult_DF$race)
+adult_DF$sex = as.factor(adult_DF$sex)
+adult_DF$`capital-gain` = as.factor(adult_DF$`capital-gain`)
+adult_DF$`capital-loss` = as.factor(adult_DF$`capital-loss`)
+adult_DF$`hours-per-week` = as.factor(adult_DF$`hours-per-week`)
+adult_DF$`native-country` = as.factor(adult_DF$`native-country`)
+adult_DF$income = as.factor(adult_DF$income)
+str(adult_DF)
+
+
+```
+####Run association rule mining algorithm using default settings
+```{r echo=TRUE}
+default_asso_rules <- apriori(adult_DF)
+
+plot(default_asso_rules, measure = c("support", "confidence"), shading = "lift")
+
+plot(default_asso_rules, measure = c("support", "confidence"))
+
+```
+#Support 0.1 , confidence 0.8, with this criteria 8678 rules were obtained,and as can be seen from the plot lift value is high to be almost 1, at support between 0.2 and 0.4
+#8 most interesting rules:
+```{r echo=TRUE}
+inspect(head(sort(default_asso_rules, by = "lift", decreasing = T), 8))
+```
+##Conclusion: If the population is Senior Married Male their relationship is Husband, couple of rules also state that these set of people generally do not involve in capital as its capital loss or gain is equal to None.
+
+
+###Fine tune the model by experimenting with different algorithm parameters
+```{r echo=TRUE}
+ruleset1<-apriori(data = adult_DF,parameter = list(supp=0.1,conf = 0.98, minlen =5))
+#remove redundant rules
+subset_rules1 <- which(colSums(is.subset(ruleset1, ruleset1)) > 1)
+#sort rules
+ruleset2<- sort(ruleset1[-subset_rules1], by = "lift", descreasing = T)
+plot(ruleset1, measure = c("support", "confidence"), shading = "lift")
+inspect(head(ruleset2,5))
+
+```
+##Conclusion:
+Again we have married in rhs which states that if the working class is private and the person is from United States and is a Husband he is likely to be married.
+
+
+###Output and present the most interesting and significant rules which could predict "income"
+
+####let's take two cases since we have two categories in income, let's carry out apriori for income small and income large
+```{r echo=TRUE}
+small_income_rules <- apriori(data = adult_DF, parameter = list(supp = 0.1, conf = 0.95, minlen = 5),appearance = list(default = "lhs",rhs = c("income=small")),control = list(verbose = F))
+#let's remove the redundant rules
+subset_small_income_rules <- which(colSums(is.subset(small_income_rules, small_income_rules)) > 1)
+#sort rules
+sort_rules<- sort(small_income_rules[-subset_small_income_rules], by = "lift", descreasing = T)
+plot(small_income_rules, measure = c("support", "confidence"), shading = "lift")
+
+inspect(head(sort_rules,5))
+```
+##Conclusion:
+A working class generally private, High school graduates, generally no capital class or gain and unmarried people generally have a very small income
+
+
+#****************
+#Let's explore rules for income = large
+```{r echo=TRUE}
+large_income_rules <- apriori(data = adult_DF, parameter = list(supp = 0.1, conf = 0.45, minlen = 2),appearance = list(default = "lhs",rhs = c("income=large")),control = list(verbose = F))
+
+#let's remove the redundant rules
+subset_large_income_rules <- which(colSums(is.subset(large_income_rules, large_income_rules)) > 1)
+#sort rules
+sort_rules<- sort(large_income_rules[-subset_large_income_rules], by = "lift", descreasing = T)
+plot(large_income_rules, measure = c("support", "confidence"), shading = "lift")
+
+inspect(head(large_income_rules,5))
+```
+##Conclusion:
+Married,middle aged males are likely to be having a large income
+
+###Shiny URL
+
+http://127.0.0.1:4904/
+
+OR
+
+https://aangre-dataanalytics.shinyapps.io/SHINY_SUBMIT/
+
+
+
+#The end
+
+
+```{r echo=TRUE}
+
+```
+
