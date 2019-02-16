@@ -1,4 +1,4 @@
-# AssociativeRuleMining #AdultUCI- Income Analysis
+#AdultUCI- Income Analysis # AssociativeRuleMining 
 
 #Final output of the analysis in my created Shiny App link attached below, explore and play with it:
 https://aangre-dataanalytics.shinyapps.io/SHINY_SUBMIT/
